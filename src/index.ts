@@ -47,20 +47,33 @@ function calculates_bazin_method(quoteData: QuoteData): number {
   return value / (avg_dividend_yield_five_years / 100);
 }
 
-async function extract_dividend_yield_history(page: Page): Promise<number[]> {
+// async function extract_dividend_yield_history(page: Page): Promise<number[]> {
+//   const quoteValue = await page.evaluate(() => {
+//     const rows = Array.from(document.querySelectorAll('#table-dividends-history tr'));
+//     return rows.map(row => {
+//       const cells = Array.from(row.querySelectorAll('th, td'));
+//       return cells.map(cell => cell.textContent?.trim());
+//     });
+//   });
 
-}
+//   return quoteValue;
+
+// }
 
 async function extract_quote_value(page: Page): Promise<number> {
-  const quoteValue = await page.evaluate(() => {
-    const rows = Array.from(document.querySelectorAll('#table-dividends-history tr'));
-    return rows.map(row => {
-      const cells = Array.from(row.querySelectorAll('th, td'));
-      return cells.map(cell => cell.textContent?.trim());
-    });
+  const quote_value = await page.evaluate(() => {
+    return Number(
+      document
+        .querySelector('.cotacao .value')
+        ?.textContent
+        ?.trim()
+        .replaceAll('R$', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.') ?? 0
+      );
   });
 
-  return quoteValue;
+  return quote_value;
 }
 
 async function extract_indications_history_data(page: Page): Promise<IndicatorHistory[]> {
