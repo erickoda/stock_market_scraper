@@ -1,13 +1,12 @@
 import puppeteer, { Page } from "puppeteer";
 
-
 (async function main() {
   // Launch the browser and open a new blank page
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
 
   // Navigate the page to a URL
-  await page.goto('https://investidor10.com.br/acoes/bbas3/', {
+  await page.goto('https://investidor10.com.br/acoes/wege3/', {
     waitUntil: 'networkidle2',
   });
 
@@ -16,49 +15,124 @@ import puppeteer, { Page } from "puppeteer";
 
   const indicatorHistory = await extract_indications_history_data(page);
   const quoteValue = await extract_quote_value(page);
+  const dividend_history = await extract_dividend_history(page);
+  const bazin_max_value = calculates_bazin_method(dividend_history);
+  const graham_max_value = calculates_graham_method(indicatorHistory);
+
   const quoteData: QuoteData = {
-    ticker: 'BBAS3',
+    ticker: 'wege3',
     value: quoteValue,
-    indicators: indicatorHistory
+    indicators: indicatorHistory,
+    dividends_history: dividend_history,
+    bazin_profit: bazin_max_value/quoteValue - 1,
+    graham_profit: graham_max_value/quoteValue - 1
   };
+
+
   console.log(JSON.stringify(quoteData, null, 2));
-  console.log(`Preço Justo Método Bazin: ${calculates_bazin_method(quoteData)}`);
 
   await browser.close();
 })();
 
-function calculates_bazin_method(quoteData: QuoteData): number {
-  const { value, indicators } = quoteData;
-  const dividend_yield_history = indicators.find(indicator => indicator.indicator === 'DIVIDEND YIELD (DY)')?.values || [];
+function calculates_graham_method(indicators: IndicatorHistory[]): number {
+  const earnings_per_share = indicators.find(indicator => indicator.indicator.toUpperCase() === 'LPA')?.values[0].value ?? 0;
+  const book_value_per_share = indicators.find(indicator => indicator.indicator.toUpperCase() === 'VPA')?.values[0].value ?? 0;
 
-  console.log(dividend_yield_history);
+  return Math.sqrt(22.5 * earnings_per_share * book_value_per_share);
+}
+
+function calculates_bazin_method(dividends_history: Dividend[]): number {
+  const dividend_yield_history = dividends_history;
 
   const avg_dividend_yield_five_years = (() => {
     let total = 0;
-    for (let i = 0; i < dividend_yield_history.length; i++) {
-      const dy = dividend_yield_history[i].value;
-      total += dy;
+    const quantity_of_years = 3;
+    for (let i = 1; i < quantity_of_years + 1; i++) {
+      const dividend = dividend_yield_history[i].value;
+      total += dividend;
     }
-    return total / dividend_yield_history.length;
+    return total / quantity_of_years;
   })();
 
-  console.log(avg_dividend_yield_five_years);
+  console.log(`Avg Dividend Yield 3 years: ${avg_dividend_yield_five_years}`);
 
-  return value / (avg_dividend_yield_five_years / 100);
+  return avg_dividend_yield_five_years / 0.06;
 }
 
-// async function extract_dividend_yield_history(page: Page): Promise<number[]> {
-//   const quoteValue = await page.evaluate(() => {
-//     const rows = Array.from(document.querySelectorAll('#table-dividends-history tr'));
-//     return rows.map(row => {
-//       const cells = Array.from(row.querySelectorAll('th, td'));
-//       return cells.map(cell => cell.textContent?.trim());
-//     });
-//   });
+async function extract_dividend_history(page: Page): Promise<Dividend[]> {
 
-//   return quoteValue;
+  const dividend_tables = [];
+  let dividends_per_year: Dividend[] = [];
 
-// }
+  for (let i = 0; i < 50; i++) {
+    // extract current table dividend data
+    const dividend_table_data = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#table-dividends-history tr'));
+      return rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('th, td'));
+        return cells.map(cell => cell.textContent?.trim());
+      });
+    });
+
+    function compareMatrixes(matrix1: (string | undefined)[][], matrix2: (string | undefined)[][]): boolean {
+      if (matrix1.length !== matrix2.length) {
+        return false;
+      }
+
+      for (let i = 0; i < matrix1.length; i++) {
+        if (matrix1[i].length !== matrix2[i].length) {
+          return false;
+        }
+
+        for (let j = 0; j < matrix1[i].length; j++) {
+          if (matrix1[i][j] !== matrix2[i][j]) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    if (dividend_tables.length > 0 && compareMatrixes(dividend_tables[dividend_tables.length - 1], dividend_table_data)) {
+      break;
+    }
+
+    dividend_tables.push(dividend_table_data);
+
+    // Click on the next page
+    await page.locator('#table-dividends-history_next').click();
+  }
+
+  // Calculate the dividends per year
+  for (const table of dividend_tables) {
+    for (const row of table) {
+      if (!Number(row[1]?.split('/')[2])) {
+        continue;
+      }
+
+      if (dividends_per_year.find(dividend => dividend.year === Number(row[1]?.split('/')[2])) === undefined) {
+        dividends_per_year.push({
+          year: Number(row[1]?.split('/')[2]),
+          value: Number(row[3]?.replaceAll('R$', '').replaceAll('.', '').replaceAll(',', '.'))
+        });
+
+        continue;
+      }
+
+      dividends_per_year = dividends_per_year.map(dividend => {
+        if (dividend.year === Number(row[1]?.split('/')[2])) {
+          dividend.value += Number(row[3]?.replaceAll('R$', '').replaceAll('.', '').replaceAll(',', '.'));
+        }
+        return dividend;
+      });
+    }
+  }
+
+  // console.log(JSON.stringify(dividend_tables, null, 2));
+
+  return dividends_per_year;
+}
 
 async function extract_quote_value(page: Page): Promise<number> {
   const quote_value = await page.evaluate(() => {
@@ -114,6 +188,14 @@ type QuoteData = {
   ticker: string;
   value: number;
   indicators: IndicatorHistory[];
+  dividends_history: Dividend[];
+  bazin_profit: number;
+  graham_profit: number;
+}
+
+type Dividend = {
+  year: number;
+  value: number;
 }
 
 type IndicatorHistory = {
