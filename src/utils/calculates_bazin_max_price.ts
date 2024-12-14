@@ -1,4 +1,4 @@
-import Dividend from "../types/dividend";
+import Dividend from "../types/dividend.js";
 
 export default function calculates_bazin_max_price(dividends_history: Dividend[]): number {
   // If you don't have at least 3 years of dividends history, return 0

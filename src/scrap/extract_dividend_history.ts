@@ -1,5 +1,5 @@
 import { Page } from "puppeteer";
-import Dividend from "../types/dividend";
+import Dividend from "../types/dividend.js";
 
 export default async function extract_dividend_history(page: Page): Promise<Dividend[]> {
 

@@ -1,5 +1,5 @@
-import Dividend from "./dividend";
-import IndicatorHistory from "./indicator_history";
+import Dividend from "./dividend.js";
+import IndicatorHistory from "./indicator_history.js";
 
 type Stock = {
   ticker: string;

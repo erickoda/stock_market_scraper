@@ -1,5 +1,5 @@
 import { Page } from "puppeteer";
-import IndicatorHistory from "../types/indicator_history";
+import IndicatorHistory from "../types/indicator_history.js";
 
 export default async function extract_indicators_history_data(page: Page): Promise<IndicatorHistory[]> {
   // Get Indicators History Data

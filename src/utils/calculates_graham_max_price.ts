@@ -1,4 +1,4 @@
-import IndicatorHistory from "../types/indicator_history";
+import IndicatorHistory from "../types/indicator_history.js";
 
 export default function calculates_graham_max_price(indicators: IndicatorHistory[]): number {
   const earnings_per_share = indicators.find(indicator => indicator.indicator.toUpperCase() === 'LPA')?.values[0].value ?? 0;
