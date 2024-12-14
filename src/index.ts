@@ -31,10 +31,6 @@ import { Cluster } from "puppeteer-cluster";
     
   } catch (error) {
     console.error(error);
-    await cluster.idle();
-    await cluster.close();
-
-    persist_stocks(stocks);
   } finally {
     await cluster.idle();
     await cluster.close();
