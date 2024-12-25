@@ -27,7 +27,7 @@ export default async function extract_indicators_history_data(page: Page): Promi
       indicator: indicator || '',
       values: row.map((value, index) => ({
         year: header[index] || '',
-        value: Number((value || '').replaceAll('%', '').replaceAll('.', '').replaceAll(',', '.'))
+        value: Number((value || '').replaceAll('%', '').replaceAll('.', '').replaceAll(',', '.')) ?? 0
       }))
     };
   });

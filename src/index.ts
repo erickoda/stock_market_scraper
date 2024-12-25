@@ -5,37 +5,39 @@ import extract_quote_value from "./scrap/extract_quote_value.js";
 import calculates_bazin_max_price from "./utils/calculates_bazin_max_price.js";
 import calculates_graham_max_price from "./utils/calculates_graham_max_price.js";
 import persist_stocks from "./utils/persiste_stocks.js";
-import { Page } from "puppeteer";
+import puppeteer, { Page } from "puppeteer";
 import ALL_TICKERS from "./mocked/tickers.js";
-import { Cluster } from "puppeteer-cluster";
+import filterStocksByIndicators from "./utils/filter_stocks_by_indicators.js";
+import fs from "fs";
 
 (async function main() {
   const stocks: Stock[] = [];
 
-  const cluster = await Cluster.launch({
-    concurrency: Cluster.CONCURRENCY_CONTEXT,
-    maxConcurrency: 10,
-    puppeteerOptions: { headless: true },
-  });
-
-  await cluster.task(async ({ page, data: ticker }) => {
-    const stock = await getStock(page, ticker);
-    if (stock)
-      stocks.push(stock);
-  });
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
 
   try {
     for (const ticker of ALL_TICKERS) {
-      cluster.queue(ticker);
+      const stock = await getStock(page, ticker);
+      if (stock)
+        stocks.push(stock);
     }
     
   } catch (error) {
     console.error(error);
   } finally {
-    await cluster.idle();
-    await cluster.close();
+    await page.close();
+    await browser.close();
 
-    persist_stocks(stocks);
+    const filteredStocks = filterStocksByIndicators(stocks);
+
+    fs.writeFileSync(
+      "stocks.json",
+      JSON.stringify(stocks, null, 2)
+    )
+
+    persist_stocks(filteredStocks, "filtered_stocks.csv");
+    persist_stocks(stocks, "stocks.csv");
   }
 
 })();
